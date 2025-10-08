@@ -1,6 +1,8 @@
 defmodule Toio.CubeSupervisorTest do
   use ExUnit.Case, async: false
 
+  @moduletag :ble
+
   alias Toio.{Cube, CubeSupervisor}
 
   describe "start_cube/1" do
