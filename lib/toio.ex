@@ -1,0 +1,328 @@
+defmodule Toio do
+  @moduledoc """
+  Elixir library for controlling toio Core Cubes via Bluetooth Low Energy.
+
+  ## Overview
+
+  This library provides a high-level API for discovering and controlling toio Core Cubes.
+  Each cube runs in its own supervised process, allowing you to manage multiple cubes
+  simultaneously.
+
+  ## Quick Start
+
+      # Discover and connect to toio cubes
+      {:ok, cubes} = Toio.discover()
+
+      # Get the first cube
+      [cube | _] = cubes
+
+      # Move forward
+      Toio.move(cube, 50, 50)
+
+      # Turn on LED
+      Toio.turn_on_light(cube, 255, 0, 0)
+
+      # Play a sound
+      Toio.play_sound_effect(cube, :enter)
+
+      # Subscribe to events
+      Toio.subscribe(cube, :button)
+      receive do
+        {:toio_event, _name, :button, button_state} ->
+          IO.inspect(button_state)
+      end
+
+  ## Architecture
+
+  The library is organized as follows:
+
+  - `Toio.Scanner` - Discovers toio cubes via BLE
+  - `Toio.Cube` - GenServer managing a single cube connection
+  - `Toio.CubeSupervisor` - DynamicSupervisor for cube processes
+  - `Toio.Manager` - Manages discovery and automatic cube startup
+  - `Toio.Specs.*` - Binary encoding/decoding for BLE characteristics
+  - `Toio.Types` - Type definitions for cube data structures
+  """
+
+  alias Toio.{Cube, Manager}
+
+  @type cube :: pid()
+  @type cube_name :: String.t()
+  @type event_type :: :id | :sensor | :button | :battery | :motor_response
+  @type rgb :: {0..255, 0..255, 0..255}
+  @type speed :: -115..115
+  @type duration_ms :: non_neg_integer()
+  @type coordinate :: non_neg_integer()
+  @type angle :: 0..360
+  @type volume :: 0..255
+  @type sound_effect ::
+          :enter
+          | :selected
+          | :cancel
+          | :cursor
+          | :mat_in
+          | :mat_out
+          | :get1
+          | :get2
+          | :get3
+          | :effect1
+          | :effect2
+
+  # Discovery and Management
+
+  @doc """
+  Discover toio cubes and start supervised processes for them.
+
+  Options:
+    - :duration - scan duration in milliseconds (default: 5000)
+    - :count - maximum number of cubes to find (default: :all)
+    - :auto_connect - automatically connect to discovered cubes (default: true)
+
+  Returns `{:ok, [pid]}` with a list of cube process IDs.
+
+  ## Examples
+
+      {:ok, cubes} = Toio.discover()
+      {:ok, [cube]} = Toio.discover(count: 1)
+      {:ok, cubes} = Toio.discover(duration: 10_000)
+  """
+  @spec discover(keyword()) :: {:ok, [cube()]} | {:error, term()}
+  def discover(opts \\ []) do
+    Manager.discover_and_start(opts)
+  end
+
+  @doc """
+  List all managed cube processes.
+  """
+  @spec list_cubes() :: [cube()]
+  def list_cubes do
+    Manager.list_cubes()
+  end
+
+  @doc """
+  Stop all managed cube processes.
+  """
+  @spec stop_all() :: :ok
+  def stop_all do
+    Manager.stop_all_cubes()
+  end
+
+  # Connection Management
+
+  @doc """
+  Connect to a cube.
+  """
+  @spec connect(cube(), timeout()) :: :ok | {:error, term()}
+  def connect(cube_pid, timeout \\ 10_000) do
+    Cube.connect(cube_pid, timeout)
+  end
+
+  @doc """
+  Disconnect from a cube.
+  """
+  @spec disconnect(cube()) :: :ok
+  def disconnect(cube_pid) do
+    Cube.disconnect(cube_pid)
+  end
+
+  # Motor Control
+
+  @doc """
+  Move the cube motors.
+
+  Speed values range from -115 to 115.
+  Negative values move backward, positive values move forward.
+
+  ## Examples
+
+      # Move forward
+      Toio.move(cube, 50, 50)
+
+      # Turn right
+      Toio.move(cube, 50, -50)
+
+      # Stop
+      Toio.move(cube, 0, 0)
+  """
+  @spec move(cube(), speed(), speed()) :: :ok | {:error, term()}
+  def move(cube_pid, left_speed, right_speed) do
+    Cube.move(cube_pid, left_speed, right_speed)
+  end
+
+  @doc """
+  Move the cube motors for a specified duration.
+
+  Duration is in milliseconds.
+
+  ## Examples
+
+      # Move forward for 1 second
+      Toio.move_timed(cube, 50, 50, 1000)
+  """
+  @spec move_timed(cube(), speed(), speed(), duration_ms()) :: :ok | {:error, term()}
+  def move_timed(cube_pid, left_speed, right_speed, duration_ms) do
+    Cube.move_timed(cube_pid, left_speed, right_speed, duration_ms)
+  end
+
+  @doc """
+  Move to a target position on the mat.
+
+  Options:
+    - :timeout - movement timeout in seconds (default: 5)
+    - :movement_type - 0: move while rotating, 1: rotate then move, 2: move without rotating (default: 0)
+    - :max_speed - maximum speed 10-255 (default: 80)
+    - :speed_change_type - 0: constant, 1: slow start, 2: slow end, 3: slow both (default: 0)
+
+  ## Examples
+
+      Toio.move_to(cube, 200, 200, 90)
+      Toio.move_to(cube, 200, 200, 90, max_speed: 100, movement_type: 1)
+  """
+  @spec move_to(cube(), coordinate(), coordinate(), angle(), keyword()) ::
+          {:ok, term()} | {:error, term()}
+  def move_to(cube_pid, target_x, target_y, target_angle, opts \\ []) do
+    Cube.move_to(cube_pid, target_x, target_y, target_angle, opts)
+  end
+
+  @doc """
+  Stop motor movement.
+  """
+  @spec stop(cube()) :: :ok | {:error, term()}
+  def stop(cube_pid) do
+    Cube.stop(cube_pid)
+  end
+
+  # Light Control
+
+  @doc """
+  Turn on the LED light with RGB color.
+
+  Duration is in milliseconds. Use 0 for infinite duration.
+
+  ## Examples
+
+      # Red light
+      Toio.turn_on_light(cube, 255, 0, 0)
+
+      # Green light for 2 seconds
+      Toio.turn_on_light(cube, 0, 255, 0, 2000)
+  """
+  @spec turn_on_light(cube(), 0..255, 0..255, 0..255, duration_ms()) :: :ok | {:error, term()}
+  def turn_on_light(cube_pid, r, g, b, duration_ms \\ 0) do
+    Cube.turn_on_light(cube_pid, r, g, b, duration_ms)
+  end
+
+  @doc """
+  Turn off the LED light.
+  """
+  @spec turn_off_light(cube()) :: :ok | {:error, term()}
+  def turn_off_light(cube_pid) do
+    Cube.turn_off_light(cube_pid)
+  end
+
+  @doc """
+  Play a light scenario with multiple color changes.
+
+  Operations is a list of `{duration_ms, r, g, b}` tuples.
+
+  ## Examples
+
+      operations = [
+        {1000, 255, 0, 0},    # Red for 1 second
+        {1000, 0, 255, 0},    # Green for 1 second
+        {1000, 0, 0, 255}     # Blue for 1 second
+      ]
+      Toio.play_light_scenario(cube, operations, 3)  # Repeat 3 times
+  """
+  @spec play_light_scenario(cube(), [{duration_ms(), 0..255, 0..255, 0..255}], non_neg_integer()) ::
+          :ok | {:error, term()}
+  def play_light_scenario(cube_pid, operations, repeat_count \\ 0) do
+    Cube.play_light_scenario(cube_pid, operations, repeat_count)
+  end
+
+  # Sound Control
+
+  @doc """
+  Play a sound effect.
+
+  Effect IDs: :enter, :selected, :cancel, :cursor, :mat_in, :mat_out,
+              :get1, :get2, :get3, :effect1, :effect2
+
+  ## Examples
+
+      Toio.play_sound_effect(cube, :enter)
+      Toio.play_sound_effect(cube, :mat_in, 200)
+  """
+  @spec play_sound_effect(cube(), sound_effect() | non_neg_integer(), volume()) ::
+          :ok | {:error, term()}
+  def play_sound_effect(cube_pid, effect_id, volume \\ 255) do
+    Cube.play_sound_effect(cube_pid, effect_id, volume)
+  end
+
+  @doc """
+  Play MIDI notes.
+
+  Notes is a list of `{duration_ms, note_number, volume}` tuples.
+  Note number 128 is silence. Note 57 = A4 (440 Hz).
+
+  ## Examples
+
+      notes = [
+        {300, 60, 255},  # C4
+        {300, 64, 255},  # E4
+        {300, 67, 255}   # G4
+      ]
+      Toio.play_midi(cube, notes)
+  """
+  @spec play_midi(cube(), [{duration_ms(), 0..128, volume()}], non_neg_integer()) ::
+          :ok | {:error, term()}
+  def play_midi(cube_pid, notes, repeat_count \\ 0) do
+    Cube.play_midi(cube_pid, notes, repeat_count)
+  end
+
+  @doc """
+  Stop sound playback.
+  """
+  @spec stop_sound(cube()) :: :ok | {:error, term()}
+  def stop_sound(cube_pid) do
+    Cube.stop_sound(cube_pid)
+  end
+
+  # Event Subscription
+
+  @doc """
+  Subscribe to cube events.
+
+  Event types:
+    - :id - Position and Standard ID events
+    - :sensor - Motion and magnetic sensor events
+    - :button - Button press/release events
+    - :battery - Battery level events
+    - :motor_response - Motor command response events
+
+  Events are sent as messages: `{:toio_event, cube_name, event_type, event_data}`
+
+  ## Examples
+
+      Toio.subscribe(cube, :button)
+
+      receive do
+        {:toio_event, _name, :button, button_state} ->
+          if button_state.pressed do
+            IO.puts("Button pressed!")
+          end
+      end
+  """
+  @spec subscribe(cube(), event_type()) :: :ok
+  def subscribe(cube_pid, event_type) do
+    Cube.subscribe(cube_pid, event_type)
+  end
+
+  @doc """
+  Unsubscribe from cube events.
+  """
+  @spec unsubscribe(cube(), event_type()) :: :ok
+  def unsubscribe(cube_pid, event_type) do
+    Cube.unsubscribe(cube_pid, event_type)
+  end
+end
