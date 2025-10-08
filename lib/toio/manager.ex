@@ -24,35 +24,39 @@ defmodule Toio.Manager do
     count = Keyword.get(opts, :count, :all)
 
     Logger.info("Discovering toio cubes...")
-
-    # Scan for cubes
     devices = Scanner.scan(duration: duration, count: count)
 
-    if Enum.empty?(devices) do
-      Logger.warning("No toio cubes found")
-      {:ok, []}
-    else
-      # Start supervised processes for each cube
-      pids =
-        devices
-        |> Enum.map(fn device ->
-          case CubeSupervisor.start_cube(device) do
-            {:ok, pid} ->
-              Logger.info("Started cube process: #{inspect(pid)}")
-              pid
+    devices
+    |> handle_discovered_devices()
+  end
 
-            {:error, {:already_started, pid}} ->
-              Logger.info("Cube already running: #{inspect(pid)}")
-              pid
+  defp handle_discovered_devices([]) do
+    Logger.warning("No toio cubes found")
+    {:ok, []}
+  end
 
-            {:error, reason} ->
-              Logger.error("Failed to start cube: #{inspect(reason)}")
-              nil
-          end
-        end)
-        |> Enum.filter(&is_pid/1)
+  defp handle_discovered_devices(devices) do
+    pids =
+      devices
+      |> Enum.map(&start_cube_process/1)
+      |> Enum.filter(&is_pid/1)
 
-      {:ok, pids}
+    {:ok, pids}
+  end
+
+  defp start_cube_process(device) do
+    case CubeSupervisor.start_cube(device) do
+      {:ok, pid} ->
+        Logger.info("Started cube process: #{inspect(pid)}")
+        pid
+
+      {:error, {:already_started, pid}} ->
+        Logger.info("Cube already running: #{inspect(pid)}")
+        pid
+
+      {:error, reason} ->
+        Logger.error("Failed to start cube: #{inspect(reason)}")
+        nil
     end
   end
 

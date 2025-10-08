@@ -500,7 +500,21 @@ defmodule Toio.Cube do
 
   @spec do_connect(State.t(), timeout()) :: {:ok, State.t()} | {:error, term()}
   defp do_connect(state, timeout \\ 10_000) do
-    # Start scanning to discover the peripheral
+    with {:ok, peripheral} <- scan_and_find_peripheral(state),
+         {:ok, peripheral} <- connect_peripheral(peripheral, timeout),
+         {:ok, state} <- wait_for_connection(state, peripheral, timeout) do
+      {:ok, state}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  rescue
+    e ->
+      Logger.error("Error connecting to #{state.name}: #{inspect(e)}")
+      {:error, :connection_failed}
+  end
+
+  defp scan_and_find_peripheral(state) do
+    # Start scanning
     _central =
       case Native.start_scan(state.central, 3000) do
         {:ok, c} -> c
@@ -508,6 +522,7 @@ defmodule Toio.Cube do
         c when is_reference(c) -> c
       end
 
+    # Wait for scan to start
     receive do
       {:btleplug_scan_started, _} -> :ok
     after
@@ -519,43 +534,38 @@ defmodule Toio.Cube do
     Native.stop_scan(state.central)
 
     # Find peripheral
-    peripheral =
-      case Native.find_peripheral(state.central, state.id) do
-        {:ok, p} -> p
-        {:error, reason} -> raise "Peripheral not found: #{inspect(reason)}"
-        p when is_reference(p) -> p
-      end
+    case Native.find_peripheral(state.central, state.id) do
+      {:ok, p} -> {:ok, p}
+      {:error, reason} -> raise "Peripheral not found: #{inspect(reason)}"
+      p when is_reference(p) -> {:ok, p}
+    end
+  end
 
-    # Connect
-    peripheral =
-      case Native.connect(peripheral, timeout) do
-        {:ok, p} -> p
-        {:error, reason} -> raise "Connection failed: #{inspect(reason)}"
-        p when is_reference(p) -> p
-      end
+  defp connect_peripheral(peripheral, timeout) do
+    case Native.connect(peripheral, timeout) do
+      {:ok, p} -> {:ok, p}
+      {:error, reason} -> raise "Connection failed: #{inspect(reason)}"
+      p when is_reference(p) -> {:ok, p}
+    end
+  end
 
-    # Wait for connection confirmation
+  defp wait_for_connection(state, peripheral, timeout) do
     receive do
       {:btleplug_peripheral_connected, _msg} ->
         Logger.debug("Connection confirmed for #{state.name}")
-
-        # Subscribe to motor characteristic for notifications
-        _peripheral =
-          case Native.subscribe(peripheral, Constants.motor_uuid(), 5000) do
-            {:ok, p} -> p
-            {:error, _} -> nil
-            p when is_reference(p) -> p
-          end
-
+        subscribe_to_motor_notifications(peripheral)
         {:ok, %{state | peripheral: peripheral, connected: true}}
     after
-      timeout ->
-        {:error, :connection_timeout}
+      timeout -> {:error, :connection_timeout}
     end
-  rescue
-    e ->
-      Logger.error("Error connecting to #{state.name}: #{inspect(e)}")
-      {:error, :connection_failed}
+  end
+
+  defp subscribe_to_motor_notifications(peripheral) do
+    case Native.subscribe(peripheral, Constants.motor_uuid(), 5000) do
+      {:ok, p} -> p
+      {:error, _} -> nil
+      p when is_reference(p) -> p
+    end
   end
 
   @spec via_tuple(cube_id()) :: {:via, Registry, {Toio.CubeRegistry, cube_id()}}
