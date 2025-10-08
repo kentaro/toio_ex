@@ -89,14 +89,16 @@ jobs:
         id: plt-cache
         with:
           path: priv/plts
-          key: ${{ runner.os }}-plt-${{ matrix.otp }}-${{ matrix.elixir }}-${{ hashFiles('**/mix.lock') }}-${{ hashFiles('.dialyzer_ignore.exs') }}
-          restore-keys: ${{ runner.os }}-plt-${{ matrix.otp }}-${{ matrix.elixir }}-
+          key: ${{ runner.os }}-plt-${{ matrix.otp }}-${{ matrix.elixir }}-${{ hashFiles('**/mix.lock') }}-${{ hashFiles('.dialyzer_ignore.exs') }}-v2
 
       - name: Install dependencies
         run: mix deps.get
 
       - name: Create PLTs
-        run: mix dialyzer --plt
+        run: |
+          rm -rf priv/plts
+          mkdir -p priv/plts
+          mix dialyzer --plt
 
       - name: Run Dialyzer
         run: mix dialyzer --format github
