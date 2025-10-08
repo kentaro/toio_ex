@@ -86,7 +86,7 @@ defmodule Toio do
       {:ok, [cube]} = Toio.discover(count: 1)
       {:ok, cubes} = Toio.discover(duration: 10_000)
   """
-  @spec discover(keyword()) :: {:ok, [cube()]} | {:error, term()}
+  @spec discover(keyword()) :: {:ok, [cube()]}
   def discover(opts \\ []) do
     Manager.discover_and_start(opts)
   end
@@ -179,7 +179,7 @@ defmodule Toio do
       Toio.move_to(cube, 200, 200, 90, max_speed: 100, movement_type: 1)
   """
   @spec move_to(cube(), coordinate(), coordinate(), angle(), keyword()) ::
-          {:ok, term()} | {:error, term()}
+          :ok | {:error, term()}
   def move_to(cube_pid, target_x, target_y, target_angle, opts \\ []) do
     Cube.move_to(cube_pid, target_x, target_y, target_angle, opts)
   end

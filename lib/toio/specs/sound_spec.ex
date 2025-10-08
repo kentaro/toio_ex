@@ -37,7 +37,7 @@ defmodule Toio.Specs.SoundSpec do
   @doc """
   Stop playback.
   """
-  @spec encode_stop() :: binary()
+  @spec encode_stop() :: <<_::8>>
   def encode_stop do
     <<0x01>>
   end

@@ -11,7 +11,7 @@ defmodule Toio.Specs.ConfigurationSpec do
   @doc """
   Request BLE protocol version.
   """
-  @spec encode_request_protocol_version() :: binary()
+  @spec encode_request_protocol_version() :: <<_::16>>
   def encode_request_protocol_version do
     <<0x01, 0x00>>
   end
@@ -19,7 +19,7 @@ defmodule Toio.Specs.ConfigurationSpec do
   @doc """
   Set horizontal detection threshold (1-45 degrees).
   """
-  @spec encode_horizontal_threshold(angle_degrees()) :: binary()
+  @spec encode_horizontal_threshold(angle_degrees()) :: <<_::24>>
   def encode_horizontal_threshold(threshold) when threshold in 1..45 do
     <<0x05, 0x00, threshold>>
   end

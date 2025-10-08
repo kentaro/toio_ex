@@ -18,7 +18,7 @@ defmodule Toio.Manager do
 
   Returns `{:ok, [pid]}` with a list of cube process IDs.
   """
-  @spec discover_and_start(keyword()) :: {:ok, [cube()]} | {:error, term()}
+  @spec discover_and_start(keyword()) :: {:ok, [cube()]}
   def discover_and_start(opts \\ []) do
     duration = Keyword.get(opts, :duration, 5000)
     count = Keyword.get(opts, :count, :all)

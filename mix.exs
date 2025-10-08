@@ -43,7 +43,10 @@ defmodule Toio.MixProject do
   defp dialyzer do
     [
       plt_add_apps: [:ex_unit],
-      plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
+      plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
+      flags: [:error_handling, :underspecs],
+      list_unused_filters: true,
+      ignore_warnings: ".dialyzer_ignore.exs"
     ]
   end
 

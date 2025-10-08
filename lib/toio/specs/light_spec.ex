@@ -10,7 +10,7 @@ defmodule Toio.Specs.LightSpec do
   @doc """
   Turn off all lights.
   """
-  @spec encode_turn_off_all() :: binary()
+  @spec encode_turn_off_all() :: <<_::8>>
   def encode_turn_off_all do
     <<0x01>>
   end

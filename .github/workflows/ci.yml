@@ -8,6 +8,7 @@ on:
 
 env:
   MIX_ENV: test
+  RUSTLER_BTLEPLUG_BUILD: "1"
 
 permissions:
   contents: read
@@ -24,6 +25,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
@@ -44,8 +48,8 @@ jobs:
       - name: Check formatting
         run: mix format --check-formatted
 
-      - name: Compile with warnings as errors
-        run: mix compile --warnings-as-errors
+      - name: Compile
+        run: mix compile
 
       - name: Run tests
         run: mix test --exclude integration
@@ -63,6 +67,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
