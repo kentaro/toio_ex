@@ -464,8 +464,12 @@ defmodule Toio.Cube do
   end
 
   def handle_info({:btleplug_peripheral_disconnected, _}, state) do
-    Logger.warning("#{state.name} disconnected, will attempt reconnection")
-    Process.send_after(self(), :reconnect, 5000)
+    # Only log if we were previously connected (avoid duplicate disconnect events)
+    if state.connected do
+      Logger.warning("#{state.name} disconnected, will attempt reconnection")
+      Process.send_after(self(), :reconnect, 5000)
+    end
+
     {:noreply, %{state | connected: false, peripheral: nil}}
   end
 
@@ -607,7 +611,10 @@ defmodule Toio.Cube do
   defp notify_event_subscribers(event_type, data, state) do
     subscribers = Map.get(state.subscribers, event_type, [])
 
-    case decode_event_data(event_type, data) do
+    # Ensure data is binary (RustlerBtleplug may return lists)
+    binary_data = ensure_binary(data)
+
+    case decode_event_data(event_type, binary_data) do
       {:ok, decoded_data} ->
         Enum.each(subscribers, fn pid ->
           send(pid, {:toio_event, self(), event_type, decoded_data})
@@ -619,6 +626,10 @@ defmodule Toio.Cube do
         )
     end
   end
+
+  defp ensure_binary(data) when is_binary(data), do: data
+  defp ensure_binary(data) when is_list(data), do: :binary.list_to_bin(data)
+  defp ensure_binary(data), do: data
 
   @spec decode_event_data(event_type(), binary()) ::
           {:ok, term()} | {:error, term()}
