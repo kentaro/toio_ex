@@ -21,6 +21,16 @@ Add `toio` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
+    {:toio, github: "kentaro/toio_ex"}
+  ]
+end
+```
+
+Once published to Hex, you can use:
+
+```elixir
+def deps do
+  [
     {:toio, "~> 0.1.0"}
   ]
 end
