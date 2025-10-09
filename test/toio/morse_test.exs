@@ -137,7 +137,26 @@ defmodule Toio.MorseTest do
     end
 
     test "supports common punctuation" do
-      punctuation = [".", ",", "?", "'", "!", "/", "(", ")", "&", ":", ";", "=", "+", "-", "_", "\"", "$", "@"]
+      punctuation = [
+        ".",
+        ",",
+        "?",
+        "'",
+        "!",
+        "/",
+        "(",
+        ")",
+        "&",
+        ":",
+        ";",
+        "=",
+        "+",
+        "-",
+        "_",
+        "\"",
+        "$",
+        "@"
+      ]
 
       for char <- punctuation do
         result = Morse.char_to_morse(char)
