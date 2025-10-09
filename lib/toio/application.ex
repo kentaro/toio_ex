@@ -10,6 +10,8 @@ defmodule Toio.Application do
     children = [
       # Registry for cube process lookup by ID
       {Registry, keys: :unique, name: Toio.CubeRegistry},
+      # Registry for cube supervisor lookup by ID
+      {Registry, keys: :unique, name: Toio.CubeSupervisorRegistry},
       # DynamicSupervisor for managing cube processes
       Toio.CubeSupervisor
     ]

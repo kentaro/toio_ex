@@ -30,8 +30,11 @@ defmodule Toio.Cube.EventHandlerTest do
         send(test_pid, {:handler_called, event})
       end)
 
-      # Simulate button event
-      send(cube, {:toio_event, cube, :button, %{pressed: true}})
+      # Get the EventHandler pid
+      [{event_handler_pid, _}] = Registry.lookup(Toio.CubeRegistry, {:event_handler, cube_id})
+
+      # Simulate button event by sending directly to EventHandler
+      send(event_handler_pid, {:toio_event, cube, :button, %{pressed: true}})
 
       assert_receive {:handler_called, %{pressed: true}}, 1000
     end
@@ -47,8 +50,11 @@ defmodule Toio.Cube.EventHandlerTest do
         send(test_pid, {:handler2, event})
       end)
 
-      # Simulate button event
-      send(cube, {:toio_event, cube, :button, %{pressed: true}})
+      # Get the EventHandler pid
+      [{event_handler_pid, _}] = Registry.lookup(Toio.CubeRegistry, {:event_handler, cube_id})
+
+      # Simulate button event by sending directly to EventHandler
+      send(event_handler_pid, {:toio_event, cube, :button, %{pressed: true}})
 
       assert_receive {:handler1, %{pressed: true}}, 1000
       assert_receive {:handler2, %{pressed: true}}, 1000
@@ -65,8 +71,11 @@ defmodule Toio.Cube.EventHandlerTest do
 
       EventHandler.detach(cube_id, :button)
 
-      # Simulate button event
-      send(cube, {:toio_event, cube, :button, %{pressed: true}})
+      # Get the EventHandler pid
+      [{event_handler_pid, _}] = Registry.lookup(Toio.CubeRegistry, {:event_handler, cube_id})
+
+      # Simulate button event by sending directly to EventHandler
+      send(event_handler_pid, {:toio_event, cube, :button, %{pressed: true}})
 
       refute_receive {:handler_called, _}, 500
     end

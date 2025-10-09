@@ -44,15 +44,19 @@ defmodule Toio.Manager do
     {:ok, pids}
   end
 
-  defp start_cube_process(device) do
+  defp start_cube_process({id, _name} = device) do
     case CubeSupervisor.start_cube(device) do
-      {:ok, pid} ->
-        Logger.info("Started cube process: #{inspect(pid)}")
-        pid
+      {:ok, _supervisor_pid} ->
+        # The supervisor pid is not the cube pid - look up the actual cube process
+        cube_pid = Toio.Cube.whereis(id)
+        Logger.info("Started cube process: #{inspect(cube_pid)}")
+        cube_pid
 
-      {:error, {:already_started, pid}} ->
-        Logger.info("Cube already running: #{inspect(pid)}")
-        pid
+      {:error, {:already_started, _supervisor_pid}} ->
+        # Look up the actual cube process
+        cube_pid = Toio.Cube.whereis(id)
+        Logger.info("Cube already running: #{inspect(cube_pid)}")
+        cube_pid
 
       {:error, reason} ->
         Logger.error("Failed to start cube: #{inspect(reason)}")
@@ -73,18 +77,9 @@ defmodule Toio.Manager do
   """
   @spec stop_all_cubes() :: :ok
   def stop_all_cubes do
-    list_cubes()
-    |> Enum.each(fn pid ->
-      # Get cube ID from registry to stop properly
-      case Registry.keys(Toio.CubeRegistry, pid) do
-        [id | _] ->
-          CubeSupervisor.stop_cube(id)
-
-        [] ->
-          # Fallback: terminate directly
-          DynamicSupervisor.terminate_child(CubeSupervisor, pid)
-      end
-    end)
+    # Get all cube IDs from registry
+    Registry.select(Toio.CubeRegistry, [{{:"$1", :_, :_}, [], [:"$1"]}])
+    |> Enum.each(&CubeSupervisor.stop_cube/1)
 
     :ok
   end

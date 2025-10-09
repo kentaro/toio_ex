@@ -58,13 +58,18 @@ defmodule Toio.CubeSupervisorTest do
     end
 
     test "returns list of running cube pids" do
-      {:ok, pid1} = CubeSupervisor.start_cube({"test-id-4", "Test Cube 4"})
-      {:ok, pid2} = CubeSupervisor.start_cube({"test-id-5", "Test Cube 5"})
+      {:ok, _sup_pid1} = CubeSupervisor.start_cube({"test-id-4", "Test Cube 4"})
+      {:ok, _sup_pid2} = CubeSupervisor.start_cube({"test-id-5", "Test Cube 5"})
+      Process.sleep(100)
 
       cubes = CubeSupervisor.list_cubes()
 
-      assert pid1 in cubes
-      assert pid2 in cubes
+      # list_cubes returns cube pids, not supervisor pids
+      cube1 = Cube.whereis("test-id-4")
+      cube2 = Cube.whereis("test-id-5")
+
+      assert cube1 in cubes
+      assert cube2 in cubes
       assert length(cubes) >= 2
 
       # Cleanup

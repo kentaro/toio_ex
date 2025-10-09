@@ -25,6 +25,9 @@ defmodule Toio.CubeSupervisor do
   This starts both the Cube GenServer and its EventHandler under a
   rest_for_one supervisor. If the Cube crashes, the EventHandler
   will be restarted as well.
+
+  Returns `{:ok, supervisor_pid}` where supervisor_pid is the pid of
+  the rest_for_one supervisor managing the cube and its event handler.
   """
   @spec start_cube({String.t(), String.t()}) ::
           DynamicSupervisor.on_start_child()
@@ -42,7 +45,7 @@ defmodule Toio.CubeSupervisor do
              {Toio.Cube, device},
              {Toio.Cube.EventHandler, {nil, id}}
            ],
-           [strategy: :rest_for_one]
+           [strategy: :rest_for_one, name: {:via, Registry, {Toio.CubeSupervisorRegistry, id}}]
          ]},
       type: :supervisor,
       restart: :permanent
@@ -52,27 +55,29 @@ defmodule Toio.CubeSupervisor do
   end
 
   @doc """
-  Stop a cube process.
+  Stop a cube process and its supervisor.
   """
   @spec stop_cube(String.t()) :: :ok | {:error, :not_found}
   def stop_cube(id) do
-    case Toio.Cube.whereis(id) do
-      nil ->
-        {:error, :not_found}
+    # Look up the supervisor by ID in the CubeSupervisorRegistry
+    case Registry.lookup(Toio.CubeSupervisorRegistry, id) do
+      [{supervisor_pid, _}] ->
+        DynamicSupervisor.terminate_child(__MODULE__, supervisor_pid)
 
-      pid ->
-        DynamicSupervisor.terminate_child(__MODULE__, pid)
+      [] ->
+        {:error, :not_found}
     end
   end
 
   @doc """
   List all running cube processes.
+
+  Returns a list of cube pids (not supervisor pids).
   """
   @spec list_cubes() :: [pid()]
   def list_cubes do
-    DynamicSupervisor.which_children(__MODULE__)
-    |> Enum.map(fn {_, pid, _, _} -> pid end)
-    |> Enum.filter(&is_pid/1)
+    # Get all cube IDs from the registry
+    Registry.select(Toio.CubeRegistry, [{{:"$1", :"$2", :"$3"}, [], [:"$2"]}])
   end
 
   @impl true

@@ -480,7 +480,7 @@ defmodule Toio.Cube do
       subscribers = Map.get(state.subscribers, event_type, [])
 
       Enum.each(subscribers, fn pid ->
-        send(pid, {:toio_event, state.name, event_type, data})
+        send(pid, {:toio_event, self(), event_type, data})
       end)
     end
 
@@ -549,6 +549,15 @@ defmodule Toio.Cube do
       {:btleplug_peripheral_connected, _msg} ->
         Logger.debug("Connection confirmed for #{state.name}")
         subscribe_to_motor_notifications(peripheral)
+
+        # Re-subscribe to all event types that have subscribers
+        state.subscribers
+        |> Map.keys()
+        |> Enum.each(fn event_type ->
+          uuid = event_type_to_uuid(event_type)
+          Native.subscribe(peripheral, uuid, 5000)
+        end)
+
         {:ok, %{state | peripheral: peripheral, connected: true}}
     after
       timeout -> {:error, :connection_timeout}
