@@ -631,8 +631,21 @@ defmodule Toio.Cube do
   defp ensure_binary(data) when is_list(data), do: :binary.list_to_bin(data)
   defp ensure_binary(data), do: data
 
-  @spec decode_event_data(event_type(), binary()) ::
-          {:ok, term()} | {:error, term()}
+  @spec decode_event_data(atom(), binary()) ::
+          {:ok,
+           Toio.Types.ButtonState.t()
+           | Toio.Types.BatteryInfo.t()
+           | Toio.Types.MotorResponse.t()
+           | Toio.Types.MotionSensor.t()
+           | Toio.Types.MagneticSensor.t()
+           | Toio.Types.AttitudeEuler.t()
+           | Toio.Types.AttitudeQuaternion.t()
+           | Toio.Types.PositionId.t()
+           | Toio.Types.StandardId.t()
+           | :position_id_missed
+           | :standard_id_missed
+           | binary()}
+          | {:error, :invalid_data}
   defp decode_event_data(:button, data) do
     alias Toio.Specs.ButtonSpec
     ButtonSpec.decode(data)
