@@ -1,17 +1,16 @@
-
 # Interactive control example
-# Control a toio cube using keyboard input
+# Control a toio cube using keyboard input with proper error handling
 
 defmodule InteractiveControl do
   def run do
     IO.puts("Scanning for toio cubes...")
-    {:ok, cubes} = Toio.discover(count: 1, duration: 5000)
 
-    case cubes do
-      [] ->
+    case Toio.discover(count: 1, duration: 5000) do
+      {:ok, []} ->
         IO.puts("No toio cubes found!")
+        System.halt(1)
 
-      [cube | _] ->
+      {:ok, [cube | _]} ->
         IO.puts("Connected to cube!")
         IO.puts("\nControls:")
         IO.puts("  w - Forward")
@@ -24,8 +23,19 @@ defmodule InteractiveControl do
         IO.puts("  q - Quit")
         IO.puts("\nReady! Enter command:")
 
-        Toio.turn_on_light(cube, 0, 255, 0)
-        control_loop(cube)
+        try do
+          :ok = Toio.turn_on_light(cube, 0, 255, 0)
+          control_loop(cube)
+        after
+          # Always cleanup
+          Toio.stop(cube)
+          Toio.turn_off_light(cube)
+          Toio.disconnect(cube)
+        end
+
+      {:error, reason} ->
+        IO.puts("Failed to discover cubes: #{inspect(reason)}")
+        System.halt(1)
     end
   end
 
@@ -33,73 +43,73 @@ defmodule InteractiveControl do
     case IO.gets("") |> String.trim() do
       "w" ->
         IO.puts("→ Moving forward")
-        Toio.move(cube, 50, 50)
+        :ok = Toio.move(cube, 50, 50)
         control_loop(cube)
 
       "s" ->
         IO.puts("→ Moving backward")
-        Toio.move(cube, -50, -50)
+        :ok = Toio.move(cube, -50, -50)
         control_loop(cube)
 
       "a" ->
         IO.puts("→ Turning left")
-        Toio.move(cube, -50, 50)
+        :ok = Toio.move(cube, -50, 50)
         control_loop(cube)
 
       "d" ->
         IO.puts("→ Turning right")
-        Toio.move(cube, 50, -50)
+        :ok = Toio.move(cube, 50, -50)
         control_loop(cube)
 
       " " ->
         IO.puts("→ Stop")
-        Toio.stop(cube)
+        :ok = Toio.stop(cube)
         control_loop(cube)
 
       "1" ->
         IO.puts("→ Red LED")
-        Toio.turn_on_light(cube, 255, 0, 0)
+        :ok = Toio.turn_on_light(cube, 255, 0, 0)
         control_loop(cube)
 
       "2" ->
         IO.puts("→ Green LED")
-        Toio.turn_on_light(cube, 0, 255, 0)
+        :ok = Toio.turn_on_light(cube, 0, 255, 0)
         control_loop(cube)
 
       "3" ->
         IO.puts("→ Blue LED")
-        Toio.turn_on_light(cube, 0, 0, 255)
+        :ok = Toio.turn_on_light(cube, 0, 0, 255)
         control_loop(cube)
 
       "4" ->
         IO.puts("→ Yellow LED")
-        Toio.turn_on_light(cube, 255, 255, 0)
+        :ok = Toio.turn_on_light(cube, 255, 255, 0)
         control_loop(cube)
 
       "5" ->
         IO.puts("→ Cyan LED")
-        Toio.turn_on_light(cube, 0, 255, 255)
+        :ok = Toio.turn_on_light(cube, 0, 255, 255)
         control_loop(cube)
 
       "6" ->
         IO.puts("→ Magenta LED")
-        Toio.turn_on_light(cube, 255, 0, 255)
+        :ok = Toio.turn_on_light(cube, 255, 0, 255)
         control_loop(cube)
 
       "7" ->
         IO.puts("→ White LED")
-        Toio.turn_on_light(cube, 255, 255, 255)
+        :ok = Toio.turn_on_light(cube, 255, 255, 255)
         control_loop(cube)
 
       "p" ->
         IO.puts("→ Playing sound")
-        Toio.play_sound_effect(cube, :selected)
+        :ok = Toio.play_sound_effect(cube, :selected)
         control_loop(cube)
 
       "q" ->
         IO.puts("→ Quitting...")
-        Toio.stop(cube)
-        Toio.turn_off_light(cube)
+        :ok = Toio.stop(cube)
+        :ok = Toio.turn_off_light(cube)
         IO.puts("Goodbye!")
 
       _ ->
