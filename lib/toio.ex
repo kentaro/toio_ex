@@ -72,10 +72,11 @@ defmodule Toio do
   @doc """
   Discover toio cubes and start supervised processes for them.
 
+  Discovered cubes are automatically connected and ready to use.
+
   Options:
     - :duration - scan duration in milliseconds (default: 5000)
     - :count - maximum number of cubes to find (default: :all)
-    - :auto_connect - automatically connect to discovered cubes (default: true)
 
   Returns `{:ok, [pid]}` with a list of cube process IDs.
 

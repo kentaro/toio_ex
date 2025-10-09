@@ -474,14 +474,12 @@ defmodule Toio.Cube do
     Logger.debug("Characteristic #{uuid} changed: #{inspect(data)}")
 
     # Determine event type and notify subscribers
-    event_type = uuid_to_event_type(uuid)
+    case uuid_to_event_type(uuid) do
+      nil ->
+        :ok
 
-    if event_type do
-      subscribers = Map.get(state.subscribers, event_type, [])
-
-      Enum.each(subscribers, fn pid ->
-        send(pid, {:toio_event, self(), event_type, data})
-      end)
+      event_type ->
+        notify_event_subscribers(event_type, data, state)
     end
 
     {:noreply, state}
@@ -604,5 +602,53 @@ defmodule Toio.Cube do
       String.downcase(uuid) == String.downcase(Constants.motor_uuid()) -> :motor_response
       true -> nil
     end
+  end
+
+  defp notify_event_subscribers(event_type, data, state) do
+    subscribers = Map.get(state.subscribers, event_type, [])
+
+    case decode_event_data(event_type, data) do
+      {:ok, decoded_data} ->
+        Enum.each(subscribers, fn pid ->
+          send(pid, {:toio_event, self(), event_type, decoded_data})
+        end)
+
+      {:error, reason} ->
+        Logger.warning(
+          "Failed to decode #{event_type} event: #{inspect(reason)}, data: #{inspect(data)}"
+        )
+    end
+  end
+
+  @spec decode_event_data(event_type(), binary()) ::
+          {:ok, term()} | {:error, term()}
+  defp decode_event_data(:button, data) do
+    alias Toio.Specs.ButtonSpec
+    ButtonSpec.decode(data)
+  end
+
+  defp decode_event_data(:sensor, data) do
+    alias Toio.Specs.SensorSpec
+    SensorSpec.decode(data)
+  end
+
+  defp decode_event_data(:battery, data) do
+    alias Toio.Specs.BatterySpec
+    BatterySpec.decode(data)
+  end
+
+  defp decode_event_data(:id, data) do
+    alias Toio.Specs.IdSpec
+    IdSpec.decode(data)
+  end
+
+  defp decode_event_data(:motor_response, data) do
+    # Motor response doesn't have a decoder, return raw data
+    {:ok, data}
+  end
+
+  defp decode_event_data(_event_type, data) do
+    # Unknown event type, return raw data
+    {:ok, data}
   end
 end

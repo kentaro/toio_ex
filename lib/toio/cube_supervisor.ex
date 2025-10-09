@@ -72,12 +72,16 @@ defmodule Toio.CubeSupervisor do
   @doc """
   List all running cube processes.
 
-  Returns a list of cube pids (not supervisor pids).
+  Returns a list of cube pids (not supervisor or event handler pids).
   """
   @spec list_cubes() :: [pid()]
   def list_cubes do
-    # Get all cube IDs from the registry
-    Registry.select(Toio.CubeRegistry, [{{:"$1", :"$2", :"$3"}, [], [:"$2"]}])
+    # Get all cube pids from the registry, excluding event handlers
+    # Event handlers are registered with {:event_handler, cube_id} tuples
+    # Cubes are registered with cube_id strings directly
+    Registry.select(Toio.CubeRegistry, [
+      {{:"$1", :"$2", :_}, [{:is_binary, :"$1"}], [:"$2"]}
+    ])
   end
 
   @impl true

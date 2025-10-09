@@ -11,10 +11,11 @@ defmodule Toio.Manager do
   @doc """
   Discover toio cubes and start supervised processes for them.
 
+  Discovered cubes are automatically connected and ready to use.
+
   Options:
     - :duration - scan duration in milliseconds (default: 5000)
     - :count - maximum number of cubes to find (default: :all)
-    - :auto_connect - automatically connect to discovered cubes (default: true)
 
   Returns `{:ok, [pid]}` with a list of cube process IDs.
   """
@@ -77,8 +78,8 @@ defmodule Toio.Manager do
   """
   @spec stop_all_cubes() :: :ok
   def stop_all_cubes do
-    # Get all cube IDs from registry
-    Registry.select(Toio.CubeRegistry, [{{:"$1", :_, :_}, [], [:"$1"]}])
+    # Get all cube IDs from registry (excluding event handlers)
+    Registry.select(Toio.CubeRegistry, [{{:"$1", :_, :_}, [{:is_binary, :"$1"}], [:"$1"]}])
     |> Enum.each(&CubeSupervisor.stop_cube/1)
 
     :ok
