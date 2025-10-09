@@ -376,5 +376,4 @@ defmodule Toio do
     EventHandler.detach(cube_pid, event_type)
     cube_pid
   end
-
 end
