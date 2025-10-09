@@ -54,12 +54,11 @@ Toio.turn_on_light(cube, 255, 0, 0)
 # Play a sound
 Toio.play_sound_effect(cube, :enter)
 
-# Subscribe to button events
-Toio.subscribe(cube, :button)
-receive do
-  {:toio_event, _name, :button, button_state} ->
-    IO.inspect(button_state)
-end
+# Handle button events
+cube
+|> Toio.on(:button, fn event ->
+  IO.puts("Button: #{if event.pressed, do: "pressed", else: "released"}")
+end)
 ```
 
 ## Usage Examples
@@ -145,35 +144,42 @@ Toio.play_midi(cube, notes)
 Toio.stop_sound(cube)
 ```
 
-### Event Subscription
+### Event Handling
+
+The library provides a clean, pipeable API for handling cube events:
 
 ```elixir
-# Subscribe to events
-Toio.subscribe(cube, :button)
-Toio.subscribe(cube, :sensor)
-Toio.subscribe(cube, :battery)
-Toio.subscribe(cube, :id)
+# Attach event handlers using the pipe operator
+cube
+|> Toio.on(:button, fn event ->
+  IO.puts("Button: #{if event.pressed, do: "pressed", else: "released"}")
+end)
+|> Toio.on(:sensor, fn event ->
+  if event.collision, do: IO.puts("Collision!")
+end)
+|> Toio.on(:battery, fn event ->
+  IO.puts("Battery: #{event.percentage}%")
+end)
 
-# Handle events
-receive do
-  {:toio_event, name, :button, button_state} ->
-    if button_state.pressed do
-      IO.puts("Button pressed!")
-    end
+# Use filtered handlers for specific conditions
+cube
+|> Toio.on(:button, & &1.pressed, fn _ ->
+  IO.puts("Button pressed (filtered)")
+end)
+|> Toio.on(:battery, &(&1.percentage < 20), fn event ->
+  IO.puts("Low battery: #{event.percentage}%")
+end)
 
-  {:toio_event, name, :sensor, sensor_data} ->
-    IO.inspect(sensor_data)
-
-  {:toio_event, name, :battery, battery_info} ->
-    IO.puts("Battery: #{battery_info.percentage}%")
-
-  {:toio_event, name, :id, position_id} ->
-    IO.puts("Position: (#{position_id.cube_x}, #{position_id.cube_y})")
-end
-
-# Unsubscribe
-Toio.unsubscribe(cube, :button)
+# Remove handlers
+Toio.off(cube, :button)
 ```
+
+Event types:
+- `:button` - Button press/release
+- `:sensor` - Motion, collision, double-tap detection
+- `:battery` - Battery level updates
+- `:id` - Position and Standard ID information
+- `:motor_response` - Motor command responses
 
 ### Multiple Cubes
 
@@ -262,10 +268,11 @@ mix run examples/basic_movement.exs
 - `Toio.play_midi/3` - Play MIDI notes
 - `Toio.stop_sound/1` - Stop sound playback
 
-### Events
+### Event Handling
 
-- `Toio.subscribe/2` - Subscribe to events
-- `Toio.unsubscribe/2` - Unsubscribe from events
+- `Toio.on/3` - Attach event handler (pipeable)
+- `Toio.on/4` - Attach filtered event handler (pipeable)
+- `Toio.off/2` - Remove event handlers
 
 ## Sound Effect IDs
 
@@ -278,15 +285,6 @@ Available sound effects:
 - `:mat_out` - Off mat detection
 - `:get1`, `:get2`, `:get3` - Collection sounds
 - `:effect1`, `:effect2` - Generic effects
-
-## Event Types
-
-Available event types:
-- `:id` - Position and Standard ID information
-- `:sensor` - Motion and magnetic sensor data
-- `:button` - Button press/release
-- `:battery` - Battery level updates
-- `:motor_response` - Motor command responses
 
 ## Requirements
 

@@ -25,12 +25,11 @@ defmodule Toio do
       # Play a sound
       Toio.play_sound_effect(cube, :enter)
 
-      # Subscribe to events
-      Toio.subscribe(cube, :button)
-      receive do
-        {:toio_event, _name, :button, button_state} ->
-          IO.inspect(button_state)
-      end
+      # Handle events with pipeable API
+      cube
+      |> Toio.on(:button, fn event ->
+        IO.puts("Button: \#{if event.pressed, do: "pressed", else: "released"}")
+      end)
 
   ## Architecture
 
@@ -45,10 +44,10 @@ defmodule Toio do
   """
 
   alias Toio.{Cube, Manager}
+  alias Toio.Cube.EventHandler
 
   @type cube :: pid()
   @type cube_name :: String.t()
-  @type event_type :: :id | :sensor | :button | :battery | :motor_response
   @type rgb :: {0..255, 0..255, 0..255}
   @type speed :: -115..115
   @type duration_ms :: non_neg_integer()
@@ -288,41 +287,94 @@ defmodule Toio do
     Cube.stop_sound(cube_pid)
   end
 
-  # Event Subscription
+  # Event Handling
 
   @doc """
-  Subscribe to cube events.
+  Attach an event handler to a cube (pipeable).
 
-  Event types:
-    - :id - Position and Standard ID events
-    - :sensor - Motion and magnetic sensor events
-    - :button - Button press/release events
-    - :battery - Battery level events
-    - :motor_response - Motor command response events
-
-  Events are sent as messages: `{:toio_event, cube_name, event_type, event_data}`
+  This provides a clean, functional way to handle cube events using
+  a callback function. Multiple handlers can be attached to the same
+  event type.
 
   ## Examples
 
-      Toio.subscribe(cube, :button)
+      # Single handler
+      cube
+      |> Toio.on(:button, fn event ->
+        IO.puts("Button pressed: \#{event.pressed}")
+      end)
 
-      receive do
-        {:toio_event, _name, :button, button_state} ->
-          if button_state.pressed do
-            IO.puts("Button pressed!")
-          end
-      end
+      # Chain multiple handlers
+      cube
+      |> Toio.on(:button, &handle_button/1)
+      |> Toio.on(:sensor, &handle_sensor/1)
+      |> Toio.on(:battery, &handle_battery/1)
+
+      # Multiple cubes
+      {: ok, [cube1, cube2]} = Toio.discover(count: 2)
+
+      cube1
+      |> Toio.turn_on_light(255, 0, 0)
+      |> Toio.on(:button, fn _ -> IO.puts("Cube1 pressed!") end)
+
+      cube2
+      |> Toio.turn_on_light(0, 0, 255)
+      |> Toio.on(:button, fn _ -> IO.puts("Cube2 pressed!") end)
   """
-  @spec subscribe(cube(), event_type()) :: :ok
-  def subscribe(cube_pid, event_type) do
-    Cube.subscribe(cube_pid, event_type)
+  @spec on(cube(), atom(), (term() -> any())) :: cube()
+  def on(cube_pid, event_type, handler) when is_function(handler, 1) do
+    EventHandler.attach(cube_pid, event_type, handler)
+    cube_pid
   end
 
   @doc """
-  Unsubscribe from cube events.
+  Attach a filtered event handler to a cube (pipeable).
+
+  The filter function is called first. If it returns true, the handler
+  is executed.
+
+  ## Examples
+
+      # Only handle button press (not release)
+      cube
+      |> Toio.on(:button, &(&1.pressed), fn event ->
+        IO.puts("Button pressed!")
+      end)
+
+      # Handle collisions only
+      cube
+      |> Toio.on(:sensor, &(&1.collision), fn event ->
+        IO.puts("Collision detected!")
+      end)
+
+      # Low battery warning
+      cube
+      |> Toio.on(:battery, &(&1.percentage < 20), fn event ->
+        IO.puts("Low battery: \#{event.percentage}%")
+      end)
   """
-  @spec unsubscribe(cube(), event_type()) :: :ok
-  def unsubscribe(cube_pid, event_type) do
-    Cube.unsubscribe(cube_pid, event_type)
+  @spec on(cube(), atom(), (term() -> boolean()), (term() -> any())) :: cube()
+  def on(cube_pid, event_type, filter, handler)
+      when is_function(filter, 1) and is_function(handler, 1) do
+    wrapped_handler = fn event ->
+      if filter.(event), do: handler.(event)
+    end
+
+    EventHandler.attach(cube_pid, event_type, wrapped_handler)
+    cube_pid
   end
+
+  @doc """
+  Remove all handlers for a specific event type.
+
+  ## Examples
+
+      Toio.off(cube, :button)
+  """
+  @spec off(cube(), atom()) :: cube()
+  def off(cube_pid, event_type) do
+    EventHandler.detach(cube_pid, event_type)
+    cube_pid
+  end
+
 end

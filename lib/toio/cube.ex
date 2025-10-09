@@ -185,19 +185,14 @@ defmodule Toio.Cube do
     GenServer.call(get_pid(cube_id_or_pid), :stop_sound)
   end
 
-  @doc """
-  Subscribe to cube events.
-  Events are sent as messages: `{:toio_event, cube_name, event_type, event_data}`
-  """
-  @spec subscribe(cube_id() | pid(), event_type()) :: :ok
+  # Internal API for EventHandler
+
+  @doc false
   def subscribe(cube_id_or_pid, event_type) do
     GenServer.call(get_pid(cube_id_or_pid), {:subscribe, event_type, self()})
   end
 
-  @doc """
-  Unsubscribe from cube events.
-  """
-  @spec unsubscribe(cube_id() | pid(), event_type()) :: :ok
+  @doc false
   def unsubscribe(cube_id_or_pid, event_type) do
     GenServer.call(get_pid(cube_id_or_pid), {:unsubscribe, event_type, self()})
   end

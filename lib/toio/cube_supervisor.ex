@@ -21,13 +21,33 @@ defmodule Toio.CubeSupervisor do
 
   @doc """
   Start a cube process under supervision.
+
+  This starts both the Cube GenServer and its EventHandler under a
+  rest_for_one supervisor. If the Cube crashes, the EventHandler
+  will be restarted as well.
   """
   @spec start_cube({String.t(), String.t()}) ::
           DynamicSupervisor.on_start_child()
   def start_cube({id, name} = device) do
     Logger.info("Starting supervised cube process for #{name} (#{id})")
 
-    spec = {Toio.Cube, device}
+    # Create a Supervisor spec for the cube and its event handler
+    # using rest_for_one strategy
+    spec = %{
+      id: {Toio.Cube, id},
+      start:
+        {Supervisor, :start_link,
+         [
+           [
+             {Toio.Cube, device},
+             {Toio.Cube.EventHandler, {nil, id}}
+           ],
+           [strategy: :rest_for_one]
+         ]},
+      type: :supervisor,
+      restart: :permanent
+    }
+
     DynamicSupervisor.start_child(__MODULE__, spec)
   end
 
