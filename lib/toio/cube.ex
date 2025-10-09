@@ -654,8 +654,8 @@ defmodule Toio.Cube do
   end
 
   defp decode_event_data(:motor_response, data) do
-    # Motor response doesn't have a decoder, return raw data
-    {:ok, data}
+    alias Toio.Specs.MotorSpec
+    MotorSpec.decode(data)
   end
 
   defp decode_event_data(_event_type, data) do

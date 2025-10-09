@@ -128,10 +128,11 @@ defmodule Toio do
   # Motor Control
 
   @doc """
-  Move the cube motors.
+  Move the cube motors (pipeable).
 
   Speed values range from -115 to 115.
   Negative values move backward, positive values move forward.
+  Returns the cube pid for chaining.
 
   ## Examples
 
@@ -143,29 +144,37 @@ defmodule Toio do
 
       # Stop
       Toio.move(cube, 0, 0)
+
+      # Chain with other operations
+      cube
+      |> Toio.move(50, 50)
+      |> Toio.turn_on_light(0, 255, 0)
   """
-  @spec move(cube(), speed(), speed()) :: :ok | {:error, term()}
+  @spec move(cube(), speed(), speed()) :: cube()
   def move(cube_pid, left_speed, right_speed) do
     Cube.move(cube_pid, left_speed, right_speed)
+    cube_pid
   end
 
   @doc """
-  Move the cube motors for a specified duration.
+  Move the cube motors for a specified duration (pipeable).
 
   Duration is in milliseconds.
+  Returns the cube pid for chaining.
 
   ## Examples
 
       # Move forward for 1 second
       Toio.move_timed(cube, 50, 50, 1000)
   """
-  @spec move_timed(cube(), speed(), speed(), duration_ms()) :: :ok | {:error, term()}
+  @spec move_timed(cube(), speed(), speed(), duration_ms()) :: cube()
   def move_timed(cube_pid, left_speed, right_speed, duration_ms) do
     Cube.move_timed(cube_pid, left_speed, right_speed, duration_ms)
+    cube_pid
   end
 
   @doc """
-  Move to a target position on the mat.
+  Move to a target position on the mat (pipeable).
 
   Options:
     - :timeout - movement timeout in seconds (default: 5)
@@ -173,31 +182,37 @@ defmodule Toio do
     - :max_speed - maximum speed 10-255 (default: 80)
     - :speed_change_type - 0: constant, 1: slow start, 2: slow end, 3: slow both (default: 0)
 
+  Returns the cube pid for chaining.
+
   ## Examples
 
       Toio.move_to(cube, 200, 200, 90)
       Toio.move_to(cube, 200, 200, 90, max_speed: 100, movement_type: 1)
   """
-  @spec move_to(cube(), coordinate(), coordinate(), angle(), keyword()) ::
-          :ok | {:error, term()}
+  @spec move_to(cube(), coordinate(), coordinate(), angle(), keyword()) :: cube()
   def move_to(cube_pid, target_x, target_y, target_angle, opts \\ []) do
     Cube.move_to(cube_pid, target_x, target_y, target_angle, opts)
+    cube_pid
   end
 
   @doc """
-  Stop motor movement.
+  Stop motor movement (pipeable).
+
+  Returns the cube pid for chaining.
   """
-  @spec stop(cube()) :: :ok | {:error, term()}
+  @spec stop(cube()) :: cube()
   def stop(cube_pid) do
     Cube.stop(cube_pid)
+    cube_pid
   end
 
   # Light Control
 
   @doc """
-  Turn on the LED light with RGB color.
+  Turn on the LED light with RGB color (pipeable).
 
   Duration is in milliseconds. Use 0 for infinite duration.
+  Returns the cube pid for chaining.
 
   ## Examples
 
@@ -206,24 +221,34 @@ defmodule Toio do
 
       # Green light for 2 seconds
       Toio.turn_on_light(cube, 0, 255, 0, 2000)
+
+      # Chain with other operations
+      cube
+      |> Toio.turn_on_light(255, 0, 0)
+      |> Toio.move(50, 50)
   """
-  @spec turn_on_light(cube(), 0..255, 0..255, 0..255, duration_ms()) :: :ok | {:error, term()}
+  @spec turn_on_light(cube(), 0..255, 0..255, 0..255, duration_ms()) :: cube()
   def turn_on_light(cube_pid, r, g, b, duration_ms \\ 0) do
     Cube.turn_on_light(cube_pid, r, g, b, duration_ms)
+    cube_pid
   end
 
   @doc """
-  Turn off the LED light.
+  Turn off the LED light (pipeable).
+
+  Returns the cube pid for chaining.
   """
-  @spec turn_off_light(cube()) :: :ok | {:error, term()}
+  @spec turn_off_light(cube()) :: cube()
   def turn_off_light(cube_pid) do
     Cube.turn_off_light(cube_pid)
+    cube_pid
   end
 
   @doc """
-  Play a light scenario with multiple color changes.
+  Play a light scenario with multiple color changes (pipeable).
 
   Operations is a list of `{duration_ms, r, g, b}` tuples.
+  Returns the cube pid for chaining.
 
   ## Examples
 
@@ -235,35 +260,39 @@ defmodule Toio do
       Toio.play_light_scenario(cube, operations, 3)  # Repeat 3 times
   """
   @spec play_light_scenario(cube(), [{duration_ms(), 0..255, 0..255, 0..255}], non_neg_integer()) ::
-          :ok | {:error, term()}
+          cube()
   def play_light_scenario(cube_pid, operations, repeat_count \\ 0) do
     Cube.play_light_scenario(cube_pid, operations, repeat_count)
+    cube_pid
   end
 
   # Sound Control
 
   @doc """
-  Play a sound effect.
+  Play a sound effect (pipeable).
 
   Effect IDs: :enter, :selected, :cancel, :cursor, :mat_in, :mat_out,
               :get1, :get2, :get3, :effect1, :effect2
+
+  Returns the cube pid for chaining.
 
   ## Examples
 
       Toio.play_sound_effect(cube, :enter)
       Toio.play_sound_effect(cube, :mat_in, 200)
   """
-  @spec play_sound_effect(cube(), sound_effect() | non_neg_integer(), volume()) ::
-          :ok | {:error, term()}
+  @spec play_sound_effect(cube(), sound_effect() | non_neg_integer(), volume()) :: cube()
   def play_sound_effect(cube_pid, effect_id, volume \\ 255) do
     Cube.play_sound_effect(cube_pid, effect_id, volume)
+    cube_pid
   end
 
   @doc """
-  Play MIDI notes.
+  Play MIDI notes (pipeable).
 
   Notes is a list of `{duration_ms, note_number, volume}` tuples.
   Note number 128 is silence. Note 57 = A4 (440 Hz).
+  Returns the cube pid for chaining.
 
   ## Examples
 
@@ -274,18 +303,21 @@ defmodule Toio do
       ]
       Toio.play_midi(cube, notes)
   """
-  @spec play_midi(cube(), [{duration_ms(), 0..128, volume()}], non_neg_integer()) ::
-          :ok | {:error, term()}
+  @spec play_midi(cube(), [{duration_ms(), 0..128, volume()}], non_neg_integer()) :: cube()
   def play_midi(cube_pid, notes, repeat_count \\ 0) do
     Cube.play_midi(cube_pid, notes, repeat_count)
+    cube_pid
   end
 
   @doc """
-  Stop sound playback.
+  Stop sound playback (pipeable).
+
+  Returns the cube pid for chaining.
   """
-  @spec stop_sound(cube()) :: :ok | {:error, term()}
+  @spec stop_sound(cube()) :: cube()
   def stop_sound(cube_pid) do
     Cube.stop_sound(cube_pid)
+    cube_pid
   end
 
   # Event Handling
