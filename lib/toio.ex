@@ -409,4 +409,42 @@ defmodule Toio do
     EventHandler.detach(cube_pid, event_type)
     cube_pid
   end
+
+  # Morse Code Communication
+
+  @doc """
+  Send text as Morse code using LED and sound.
+
+  Uses standard PARIS timing (dot = 100ms) by default.
+  The cube will flash its LED and play beep sounds in Morse code pattern.
+
+  ## Options
+
+    - :dot_duration - Duration of a dot in milliseconds (default: 100)
+    - :led_color - RGB tuple for LED color (default: {255, 255, 0} yellow)
+    - :sound_volume - Volume 0-255 (default: 200)
+    - :sound - Enable/disable sound (default: true)
+    - :led - Enable/disable LED (default: true)
+
+  ## Examples
+
+      # Send SOS signal
+      Toio.send_morse(cube, "SOS")
+
+      # Send with custom color and faster timing
+      Toio.send_morse(cube, "HELLO",
+        dot_duration: 80,
+        led_color: {255, 0, 0}
+      )
+
+      # Visual only (no sound)
+      Toio.send_morse(cube, "OK", sound: false)
+
+      # Audio only (no LED)
+      Toio.send_morse(cube, "READY", led: false)
+  """
+  @spec send_morse(cube(), String.t(), keyword()) :: :ok
+  def send_morse(cube_pid, text, opts \\ []) do
+    Toio.Morse.send(cube_pid, text, opts)
+  end
 end
